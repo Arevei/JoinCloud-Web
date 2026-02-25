@@ -1,0 +1,15 @@
+/node_modules
+/dist
+/build
+/coverage
+/logs
+/temp
+/uploads
+/backups
+/cache
+/logs
+/temp
+/uploads
+/backups
+/.next
+.env
