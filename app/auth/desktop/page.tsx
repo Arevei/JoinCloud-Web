@@ -13,6 +13,7 @@ function DesktopAuthForm() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [deepLinkFallback, setDeepLinkFallback] = useState("");
 
   const validDeviceId = deviceId && deviceId !== "host" && deviceId.length >= 8 && deviceId.length <= 128;
 
@@ -66,7 +67,10 @@ function DesktopAuthForm() {
       setStatus("success");
       setMessage("Redirecting to the JoinCloud desktop app…");
       const deepLink = `joincloud://auth?token=${encodeURIComponent(tokenData.token)}`;
+      // Try immediate redirect; if the browser blocks it, user can click the link below
       window.location.href = deepLink;
+      // Store for fallback link in case redirect is blocked (e.g. some browsers block custom protocols without a direct click)
+      setDeepLinkFallback(deepLink);
     } catch (err: any) {
       setStatus("error");
       setMessage(err?.message ?? "Network error. Check your connection.");
@@ -118,6 +122,15 @@ function DesktopAuthForm() {
           {message && (
             <p style={{ fontSize: 14, color: status === "error" ? "#ef4444" : "#22c55e", margin: 0 }}>
               {message}
+            </p>
+          )}
+
+          {status === "success" && deepLinkFallback && (
+            <p style={{ fontSize: 14, margin: 0 }}>
+              If the app did not open,{" "}
+              <a href={deepLinkFallback} style={{ color: "var(--primary)", fontWeight: 600 }}>
+                click here to open JoinCloud
+              </a>.
             </p>
           )}
 
