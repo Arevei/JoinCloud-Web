@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "JoinCloud",
-  description: "JoinCloud — secure file sharing and device management",
+  description: "JoinCloud - secure file sharing and device management",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,12 +2,14 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Header from "@/components/Header";
 
 const CP_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ?? "";
 
 function DesktopAuthForm() {
   const params = useSearchParams();
   const deviceId = params.get("deviceId") ?? "";
+  const mode = params.get("mode") ?? "signin";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,8 +49,12 @@ function DesktopAuthForm() {
         return;
       }
 
-      // Step 2: request one-time desktop auth token
-      const tokenRes = await fetch(`${CP_URL}/api/v1/auth/desktop-token`, {
+      // Step 2: request one-time token (desktop auth or trial extend)
+      const isExtendTrial = mode === "extendTrial";
+      const tokenEndpoint = isExtendTrial
+        ? `${CP_URL}/api/v1/trial/extend-token`
+        : `${CP_URL}/api/v1/auth/desktop-token`;
+      const tokenRes = await fetch(tokenEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -59,18 +65,17 @@ function DesktopAuthForm() {
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok || !tokenData.token) {
         setStatus("error");
-        setMessage(tokenData.message ?? "Could not generate desktop token.");
+        setMessage(tokenData.message ?? (isExtendTrial ? "Could not extend trial." : "Could not generate desktop token."));
         return;
       }
 
-      // Step 3: redirect browser to the deep link so Electron picks it up
+      // Step 3: redirect browser to local loopback callback on desktop backend
       setStatus("success");
-      setMessage("Redirecting to the JoinCloud desktop app…");
-      const deepLink = `joincloud://auth?token=${encodeURIComponent(tokenData.token)}`;
-      // Try immediate redirect; if the browser blocks it, user can click the link below
-      window.location.href = deepLink;
-      // Store for fallback link in case redirect is blocked (e.g. some browsers block custom protocols without a direct click)
-      setDeepLinkFallback(deepLink);
+      setMessage("Redirecting to your local JoinCloud app…");
+      const callbackUrl = `http://127.0.0.1:8787/auth/callback?token=${encodeURIComponent(tokenData.token)}&mode=${encodeURIComponent(isExtendTrial ? "extendTrial" : "login")}`;
+      setDeepLinkFallback(callbackUrl);
+      // Always redirect - health check can fail due to mixed content (HTTPS->HTTP) but navigation works
+      window.location.href = callbackUrl;
     } catch (err: any) {
       setStatus("error");
       setMessage(err?.message ?? "Network error. Check your connection.");
@@ -78,15 +83,21 @@ function DesktopAuthForm() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-      <div className="card" style={{ maxWidth: 440, width: "100%" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Sign in to JoinCloud</h1>
-        <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 24 }}>
-          Signing in will link your account to the desktop app on this device.
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Header />
+      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div className="card" style={{ maxWidth: 440, width: "100%" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+            {mode === "extendTrial" ? "Extend trial" : "Sign in to JoinCloud"}
+          </h1>
+        <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24 }}>
+          {mode === "extendTrial"
+            ? "Sign in to extend your trial by 7 days."
+            : "Signing in will link your account to the desktop app on this device."}
         </p>
 
         {validDeviceId && deviceId && (
-          <div style={{ background: "var(--surface-elevated)", borderRadius: 8, padding: "8px 12px", marginBottom: 20, fontSize: 13, color: "var(--muted)" }}>
+          <div style={{ background: "var(--surface-elevated)", borderRadius: 8, padding: "8px 12px", marginBottom: 20, fontSize: 13, color: "var(--foreground-soft)" }}>
             Device: <span style={{ fontFamily: "monospace", color: "var(--foreground)" }}>{deviceId.slice(0, 16)}…</span>
           </div>
         )}
@@ -127,10 +138,15 @@ function DesktopAuthForm() {
 
           {status === "success" && deepLinkFallback && (
             <p style={{ fontSize: 14, margin: 0 }}>
-              If the app did not open,{" "}
+              If you are not redirected,{" "}
               <a href={deepLinkFallback} style={{ color: "var(--primary)", fontWeight: 600 }}>
-                click here to open JoinCloud
+                click here
               </a>.
+            </p>
+          )}
+          {status === "error" && (
+            <p style={{ fontSize: 13, margin: 0, color: "var(--foreground-soft)" }}>
+              Please open JoinCloud on this device, then retry.
             </p>
           )}
 
@@ -139,26 +155,31 @@ function DesktopAuthForm() {
             type="submit"
             disabled={status === "loading" || status === "success" || !validDeviceId}
           >
-            {status === "loading" ? "Signing in…" : "Sign in and open desktop app"}
+            {status === "loading"
+              ? "Signing in…"
+              : mode === "extendTrial"
+                ? "Extend trial and open desktop app"
+                : "Sign in and open desktop app"}
           </button>
         </form>
 
-        <p style={{ marginTop: 20, fontSize: 13, color: "var(--muted)", textAlign: "center" }}>
-          Don&apos;t have an account?{" "}
-          <a href={validDeviceId && deviceId ? `/auth/signup?deviceId=${encodeURIComponent(deviceId)}` : "/auth/signup"} style={{ color: "var(--primary)", textDecoration: "none" }}>
-            Sign up
-          </a>
-          {" · "}
-          <a href="/billing" style={{ color: "var(--primary)", textDecoration: "none" }}>View plans</a>
-        </p>
-      </div>
-    </main>
+          <p style={{ marginTop: 20, fontSize: 13, color: "var(--foreground-soft)", textAlign: "center" }}>
+            Don&apos;t have an account?{" "}
+            <a href={validDeviceId && deviceId ? `/auth/signup?deviceId=${encodeURIComponent(deviceId)}` : "/auth/signup"} style={{ color: "var(--primary)", textDecoration: "none" }}>
+              Sign up
+            </a>
+            {" · "}
+            <a href="/pricing" style={{ color: "var(--primary)", textDecoration: "none" }}>View plans</a>
+          </p>
+        </div>
+      </main>
+    </div>
   );
 }
 
 export default function DesktopAuthPage() {
   return (
-    <Suspense fallback={<main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "var(--muted)" }}>Loading…</p></main>}>
+    <Suspense fallback={<main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "var(--foreground-soft)" }}>Loading…</p></main>}>
       <DesktopAuthForm />
     </Suspense>
   );

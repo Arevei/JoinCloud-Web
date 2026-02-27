@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Forward to Control Plane to issue/update the license
   if (!CP_URL) {
     console.error("CONTROL_PLANE_URL not set; cannot issue license after payment.");
-    return NextResponse.json({ success: true, warning: "License update skipped — CONTROL_PLANE_URL not configured." });
+    return NextResponse.json({ success: true, warning: "License update skipped - CONTROL_PLANE_URL not configured." });
   }
 
   try {

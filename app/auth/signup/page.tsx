@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Header from "@/components/Header";
 
 const CP_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ?? "";
 
@@ -56,15 +57,17 @@ function SignupForm() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-      <div className="card" style={{ maxWidth: 440, width: "100%" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Create your account</h1>
-        <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 24 }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Header />
+      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div className="card" style={{ maxWidth: 440, width: "100%" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Create your account</h1>
+        <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24 }}>
           Sign up to use JoinCloud and manage your devices and plans.
         </p>
 
         {deviceId && (
-          <div style={{ background: "var(--surface-elevated)", borderRadius: 8, padding: "8px 12px", marginBottom: 20, fontSize: 13, color: "var(--muted)" }}>
+          <div style={{ background: "var(--surface-elevated)", borderRadius: 8, padding: "8px 12px", marginBottom: 20, fontSize: 13, color: "var(--foreground-soft)" }}>
             Linking device: <span style={{ fontFamily: "monospace", color: "var(--foreground)" }}>{deviceId.slice(0, 16)}…</span>
           </div>
         )}
@@ -124,22 +127,23 @@ function SignupForm() {
           </button>
         </form>
 
-        <p style={{ marginTop: 20, fontSize: 13, color: "var(--muted)", textAlign: "center" }}>
-          Already have an account?{" "}
-          <a href={deviceId ? `/auth/desktop?deviceId=${encodeURIComponent(deviceId)}` : "/auth/desktop"} style={{ color: "var(--primary)", textDecoration: "none" }}>
-            Sign in
-          </a>
-          {" · "}
-          <a href="/billing" style={{ color: "var(--primary)", textDecoration: "none" }}>View plans</a>
-        </p>
-      </div>
-    </main>
+          <p style={{ marginTop: 20, fontSize: 13, color: "var(--foreground-soft)", textAlign: "center" }}>
+            Already have an account?{" "}
+            <a href={deviceId ? `/auth/desktop?deviceId=${encodeURIComponent(deviceId)}` : "/auth/desktop"} style={{ color: "var(--primary)", textDecoration: "none" }}>
+              Sign in
+            </a>
+            {" · "}
+            <a href="/billing" style={{ color: "var(--primary)", textDecoration: "none" }}>View plans</a>
+          </p>
+        </div>
+      </main>
+    </div>
   );
 }
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "var(--muted)" }}>Loading…</p></main>}>
+    <Suspense fallback={<main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "var(--foreground-soft)" }}>Loading…</p></main>}>
       <SignupForm />
     </Suspense>
   );

@@ -3,54 +3,128 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0A0A0F;
-  --surface: #12121A;
-  --surface-elevated: #1A1A24;
+  --header-bg: #000A0D;
+  --bg: #000405;
+  --section-bg: #00080A;
+  --surface: #00080A;
+  --surface-elevated: #0A0D11;
+  --stroke: #001C25;
+  --border: #001C25;
+  --border-light: #002530;
   --primary: #2FB7FF;
+  --primary-hover: #5DC8FF;
+  --primary-soft: rgba(47, 183, 255, 0.18);
+  --accent-secondary: rgba(47, 183, 255, 0.12);
   --foreground: #FFFFFF;
-  --muted: #A1A1AA;
-  --border: #2A2A35;
+  --foreground-soft: #8B9CA3;
+  --muted: #3C5056;
+  --muted-soft: #3C5056;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
+  margin: 0;
   background-color: var(--bg);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--bg);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--primary-hover);
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--section-bg);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.card-elevated {
+  background: var(--surface-elevated);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
   padding: 24px;
 }
 
 .input {
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-sm);
   color: var(--foreground);
-  padding: 10px 14px;
+  padding: 12px 16px;
   width: 100%;
   outline: none;
-  font-size: 15px;
+  font-size: 14px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.input::placeholder {
+  color: var(--muted-soft);
 }
 
 .input:focus {
   border-color: var(--primary);
+  background: var(--section-bg);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   border: none;
-  transition: opacity 0.15s;
+  transition: all 0.15s ease;
 }
 
 .btn:disabled {
@@ -60,37 +134,146 @@ body {
 
 .btn-primary {
   background: var(--primary);
-  color: #000;
+  color: var(--bg);
 }
 
 .btn-primary:hover:not(:disabled) {
-  opacity: 0.85;
+  background: var(--primary-hover);
+  color: var(--bg);
+}
+
+a.btn-primary {
+  color: var(--bg);
+}
+
+a.btn-primary:hover {
+  color: var(--bg);
 }
 
 .btn-secondary {
+  background: transparent;
+  color: var(--foreground-soft);
+  border: 1px solid var(--stroke);
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.btn-secondary:hover:not(:disabled) {
   background: var(--surface-elevated);
   color: var(--foreground);
-  border: 1px solid var(--border);
+  border-color: var(--border-light);
+}
+
+a.btn-secondary {
+  color: var(--foreground-soft);
+}
+
+a.btn-secondary:hover {
+  color: var(--foreground);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--foreground);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--foreground-soft);
+  border: 1px solid var(--stroke);
+  font-weight: 400;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--error);
+  color: var(--foreground);
+  border-color: var(--error);
 }
 
 .label {
-  font-size: 13px;
+  font-size: 11px;
+  text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  margin-bottom: 4px;
   display: block;
+}
+
+.text-muted {
+  color: var(--muted);
+}
+
+.value {
+  font-size: 14px;
+  color: var(--foreground);
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.value-muted {
+  color: var(--foreground-soft);
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-success {
+  color: var(--success);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-error {
+  color: var(--error);
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   font-weight: 600;
+  background: var(--stroke);
+  color: var(--muted);
 }
 
-.badge-active { background: #16a34a22; color: #22c55e; }
-.badge-trial  { background: #2563eb22; color: #60a5fa; }
-.badge-grace  { background: #d9770622; color: #f59e0b; }
-.badge-expired{ background: #dc262622; color: #ef4444; }
-.badge-none   { background: #2a2a35; color: var(--muted); }
+.badge-active { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+.badge-trial  { background: rgba(47, 183, 255, 0.15); color: var(--primary); }
+.badge-grace  { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+.badge-expired{ background: rgba(239, 68, 68, 0.15); color: var(--error); }
+.badge-none   { background: var(--stroke); color: var(--muted); }
+.badge-public { background: rgba(47, 183, 255, 0.15); color: var(--primary); }
+.badge-private { background: rgba(161, 161, 170, 0.15); color: var(--muted); }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+
+.glow-text {
+  text-shadow: 0 0 20px rgba(47, 183, 255, 0.3);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--foreground);
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
