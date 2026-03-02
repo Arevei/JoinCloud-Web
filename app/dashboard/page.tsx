@@ -47,6 +47,14 @@ interface AccountSummary {
   device?: SummaryDevice;
 }
 
+interface ReferralStats {
+  referralCode: string;
+  referralLink: string;
+  totalReferrals: number;
+  daysEarned: number;
+  referrals: Array<{ email: string; date: number; daysGranted: number }>;
+}
+
 function statusBadge(status: string | null | undefined, tier?: string) {
   const s = status ?? "none";
   const paidTiers = ["pro", "teams", "custom"];
@@ -120,6 +128,18 @@ function DashboardContent() {
   const [teamActionError, setTeamActionError] = useState("");
   const [removingEmail, setRemovingEmail] = useState<string | null>(null);
   const [removePassword, setRemovePassword] = useState("");
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [applyReferralCode, setApplyReferralCode] = useState("");
+  const [applyingReferral, setApplyingReferral] = useState(false);
+  const [referralError, setReferralError] = useState("");
+  const [referralSuccess, setReferralSuccess] = useState("");
+  const [copiedReferral, setCopiedReferral] = useState(false);
+  const [supportType, setSupportType] = useState<"" | "payment" | "device_recovery" | "general">("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [newDeviceId, setNewDeviceId] = useState("");
+  const [supportSubmitting, setSupportSubmitting] = useState(false);
+  const [supportError, setSupportError] = useState("");
+  const [supportSuccess, setSupportSuccess] = useState("");
 
   useEffect(() => {
     if (!accountId && !deviceId) {
@@ -145,6 +165,21 @@ function DashboardContent() {
         }
         const data: AccountSummary = await res.json();
         setSummary(data);
+        
+        // Fetch referral stats if account exists
+        if (data.account?.id && !data.account.isDeviceOnly) {
+          try {
+            const refQ = new URLSearchParams();
+            refQ.set("account_id", data.account.id);
+            const refRes = await fetch(`${CP_URL}/api/v1/referral/stats?${refQ.toString()}`);
+            if (refRes.ok) {
+              const refData: ReferralStats = await refRes.json();
+              setReferralStats(refData);
+            }
+          } catch {
+            // Ignore referral fetch errors
+          }
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Network error. Is the Control Plane (JoinCloudAdmin) running? Start it with: cd JoinCloudAdmin && npm run dev");
       } finally {
@@ -244,6 +279,121 @@ function DashboardContent() {
       setTeamActionError(err instanceof Error ? err.message : "Network error");
     } finally {
       setTeamActionLoading(false);
+    }
+  }
+
+  async function handleApplyReferralCode() {
+    if (!applyReferralCode.trim()) {
+      setReferralError("Please enter a referral code");
+      return;
+    }
+    setReferralError("");
+    setReferralSuccess("");
+    setApplyingReferral(true);
+    try {
+      const res = await fetch(`${CP_URL}/api/v1/referral/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account_id: summary?.account?.id,
+          referral_code: applyReferralCode.trim().toUpperCase(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReferralError(data.message || "Failed to apply referral code");
+        return;
+      }
+      setReferralSuccess(`Referral applied! You earned +${data.daysGranted || 10} days.`);
+      setApplyReferralCode("");
+      // Refresh summary to update license
+      await refreshSummary();
+    } catch (err: unknown) {
+      setReferralError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setApplyingReferral(false);
+    }
+  }
+
+  function copyReferralLink() {
+    if (referralStats?.referralLink) {
+      navigator.clipboard.writeText(referralStats.referralLink);
+      setCopiedReferral(true);
+      setTimeout(() => setCopiedReferral(false), 2000);
+    }
+  }
+
+  async function handleSupportSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSupportError("");
+    setSupportSuccess("");
+    
+    if (!supportType) {
+      setSupportError("Please select a support topic");
+      return;
+    }
+    
+    setSupportSubmitting(true);
+    try {
+      if (supportType === "device_recovery") {
+        if (!newDeviceId.trim()) {
+          setSupportError("Please enter your new device ID");
+          setSupportSubmitting(false);
+          return;
+        }
+        
+        const res = await fetch(`${CP_URL}/api/v1/recovery/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_id: summary?.account?.id,
+            new_device_id: newDeviceId.trim(),
+            message: supportMessage,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setSupportError(data.message || "Failed to submit recovery request");
+          return;
+        }
+        
+        if (data.auto_approved) {
+          setSupportSuccess("Device recovery approved! Your license has been transferred to the new device.");
+        } else if (data.pending) {
+          setSupportSuccess("Recovery request submitted. Admin will review your request shortly.");
+        } else if (data.suspended) {
+          setSupportError("Your account has been suspended due to suspicious activity. Please contact support.");
+        } else {
+          setSupportSuccess("Request submitted successfully.");
+        }
+      } else {
+        // General support message
+        const res = await fetch(`${CP_URL}/api/v1/support/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_id: summary?.account?.id,
+            device_id: deviceId,
+            type: supportType,
+            message: supportMessage,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setSupportError(data.message || "Failed to send message");
+          return;
+        }
+        setSupportSuccess("Your support request has been submitted. We'll get back to you soon.");
+      }
+      
+      // Clear form on success
+      setSupportType("");
+      setSupportMessage("");
+      setNewDeviceId("");
+    } catch (err: unknown) {
+      setSupportError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSupportSubmitting(false);
     }
   }
 
@@ -382,7 +532,121 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* SECTION 3 - Device Information */}
+        {/* SECTION 3 - Referrals */}
+        {!isDeviceOnly && (
+          <div className="card" style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "var(--foreground)" }}>Referrals</h2>
+            <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 16 }}>
+              Share JoinCloud with friends and both of you get +10 extra days on your license!
+            </p>
+            
+            {/* Your Referral Code */}
+            {referralStats?.referralCode && (
+              <>
+                <Row 
+                  label="Your Referral Code" 
+                  value={
+                    <code style={{ 
+                      background: "var(--stroke)", 
+                      padding: "6px 12px", 
+                      borderRadius: 6, 
+                      fontWeight: 600,
+                      letterSpacing: "0.05em"
+                    }}>
+                      {referralStats.referralCode}
+                    </code>
+                  } 
+                />
+                <Row 
+                  label="Referral Link" 
+                  value={
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: 13, padding: "6px 12px" }}
+                      onClick={copyReferralLink}
+                    >
+                      {copiedReferral ? "Copied!" : "Copy Link"}
+                    </button>
+                  } 
+                />
+                <Row label="Total Referrals" value={<span style={{ fontWeight: 600 }}>{referralStats.totalReferrals}</span>} />
+                <Row 
+                  label="Days Earned" 
+                  value={
+                    <span style={{ color: "#22c55e", fontWeight: 600 }}>
+                      +{referralStats.daysEarned} days
+                    </span>
+                  } 
+                />
+              </>
+            )}
+
+            {/* Apply Referral Code */}
+            {!referralStats?.referralCode && (
+              <div style={{ marginTop: 16 }}>
+                <label style={{ display: "block", fontSize: 13, color: "var(--foreground-soft)", marginBottom: 6 }}>
+                  Have a referral code? Enter it below:
+                </label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={applyReferralCode}
+                    onChange={(e) => setApplyReferralCode(e.target.value.toUpperCase())}
+                    placeholder="ABCD1234"
+                    style={{ 
+                      width: 160, 
+                      padding: "8px 12px", 
+                      fontSize: 14,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em"
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ fontSize: 14, padding: "8px 16px" }}
+                    onClick={handleApplyReferralCode}
+                    disabled={applyingReferral || !applyReferralCode.trim()}
+                  >
+                    {applyingReferral ? "Applying…" : "Apply Code"}
+                  </button>
+                </div>
+                {referralError && (
+                  <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>{referralError}</p>
+                )}
+                {referralSuccess && (
+                  <p style={{ color: "#22c55e", fontSize: 13, marginTop: 8 }}>{referralSuccess}</p>
+                )}
+              </div>
+            )}
+
+            {/* Referral History */}
+            {referralStats && referralStats.referrals.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground-soft)", marginBottom: 12 }}>
+                  Referral History
+                </h3>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: 13 }}>
+                  {referralStats.referrals.map((r, i) => (
+                    <li key={i} style={{ 
+                      padding: "8px 0", 
+                      borderBottom: "1px solid var(--stroke)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+                      <span style={{ color: "var(--foreground)" }}>{r.email}</span>
+                      <span style={{ color: "#22c55e", fontSize: 12 }}>+{r.daysGranted} days</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECTION 4 - Device Information */}
         {device && (
           <div className="card" style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "var(--foreground)" }}>Device</h2>
@@ -486,6 +750,111 @@ function DashboardContent() {
             </form>
           </div>
         )}
+
+        {/* SECTION 6 - Support */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "var(--foreground)" }}>Support</h2>
+          <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 16 }}>
+            Need help? Report a payment issue, request device recovery, or ask a question.
+          </p>
+
+          <form onSubmit={handleSupportSubmit}>
+            {/* Support Type */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 13, color: "var(--foreground-soft)", marginBottom: 6 }}>
+                What do you need help with?
+              </label>
+              <select
+                value={supportType}
+                onChange={(e) => setSupportType(e.target.value as typeof supportType)}
+                style={{ 
+                  width: "100%", 
+                  padding: "10px 12px", 
+                  fontSize: 14,
+                  background: "var(--surface)",
+                  color: "var(--foreground)",
+                  border: "1px solid var(--stroke)",
+                  borderRadius: 6
+                }}
+              >
+                <option value="">Select a topic...</option>
+                <option value="payment">Payment Issue</option>
+                <option value="device_recovery">Device Recovery (Changed Device)</option>
+                <option value="general">General Question</option>
+              </select>
+            </div>
+
+            {/* Device Recovery Fields */}
+            {supportType === "device_recovery" && (
+              <div style={{ marginBottom: 16, padding: 12, background: "var(--stroke)", borderRadius: 6 }}>
+                <p style={{ fontSize: 13, color: "var(--foreground-soft)", marginBottom: 12 }}>
+                  If you've reinstalled your system or changed devices, enter your new device ID below.
+                  You can find it in the JoinCloud desktop app under Settings.
+                </p>
+                <label style={{ display: "block", fontSize: 13, color: "var(--foreground-soft)", marginBottom: 6 }}>
+                  New Device ID
+                </label>
+                <input
+                  type="text"
+                  value={newDeviceId}
+                  onChange={(e) => setNewDeviceId(e.target.value)}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  style={{ 
+                    width: "100%", 
+                    padding: "10px 12px", 
+                    fontSize: 14,
+                    fontFamily: "monospace"
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Payment Issue Info */}
+            {supportType === "payment" && (
+              <div style={{ marginBottom: 16, padding: 12, background: "var(--stroke)", borderRadius: 6 }}>
+                <p style={{ fontSize: 13, color: "var(--foreground-soft)" }}>
+                  If your payment was deducted but your plan wasn't activated, or if you're having issues with billing,
+                  please describe the problem below. Include any transaction IDs if available.
+                </p>
+              </div>
+            )}
+
+            {/* Message */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 13, color: "var(--foreground-soft)", marginBottom: 6 }}>
+                Message (optional)
+              </label>
+              <textarea
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                placeholder="Describe your issue or question..."
+                rows={4}
+                style={{ 
+                  width: "100%", 
+                  padding: "10px 12px", 
+                  fontSize: 14,
+                  resize: "vertical"
+                }}
+              />
+            </div>
+
+            {supportError && (
+              <p style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{supportError}</p>
+            )}
+            {supportSuccess && (
+              <p style={{ color: "#22c55e", fontSize: 13, marginBottom: 12 }}>{supportSuccess}</p>
+            )}
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ fontSize: 14, padding: "10px 20px" }}
+              disabled={supportSubmitting || !supportType}
+            >
+              {supportSubmitting ? "Submitting…" : "Submit Request"}
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Change Password Modal */}
