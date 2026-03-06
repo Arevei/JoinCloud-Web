@@ -1,86 +1,22 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
-
-const CP_URL = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ?? "";
+import Link from "next/link";
 
 function DesktopAuthForm() {
   const params = useSearchParams();
   const deviceId = params.get("deviceId") ?? "";
+  const accountId = params.get("accountId") ?? params.get("account_id") ?? "";
   const mode = params.get("mode") ?? "signin";
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
-  const [deepLinkFallback, setDeepLinkFallback] = useState("");
-
-  const validDeviceId = deviceId && deviceId !== "host" && deviceId.length >= 8 && deviceId.length <= 128;
-
-  useEffect(() => {
-    if (!deviceId) {
-      setStatus("error");
-      setMessage("No device ID provided. Please click 'Sign In / Create Account' from the JoinCloud desktop app.");
-    } else if (!validDeviceId) {
-      setStatus("error");
-      setMessage("Invalid device link. Please open JoinCloud on this computer and click Sign In from the app to open this page with a valid device ID.");
-    }
-  }, [deviceId, validDeviceId]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email || !password || !validDeviceId) return;
-    setStatus("loading");
-    setMessage("");
-
-    try {
-      // Step 1: login to get JWT
-      const loginRes = await fetch(`${CP_URL}/api/v1/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const loginData = await loginRes.json();
-      if (!loginRes.ok || !loginData.token) {
-        setStatus("error");
-        setMessage(loginData.message ?? "Invalid email or password.");
-        return;
-      }
-
-      // Step 2: request one-time token (desktop auth or trial extend)
-      const isExtendTrial = mode === "extendTrial";
-      const tokenEndpoint = isExtendTrial
-        ? `${CP_URL}/api/v1/trial/extend-token`
-        : `${CP_URL}/api/v1/auth/desktop-token`;
-      const tokenRes = await fetch(tokenEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${loginData.token}`,
-        },
-        body: JSON.stringify({ deviceId: deviceId!.trim() }),
-      });
-      const tokenData = await tokenRes.json();
-      if (!tokenRes.ok || !tokenData.token) {
-        setStatus("error");
-        setMessage(tokenData.message ?? (isExtendTrial ? "Could not extend trial." : "Could not generate desktop token."));
-        return;
-      }
-
-      // Step 3: redirect browser to local loopback callback on desktop backend
-      setStatus("success");
-      setMessage("Redirecting to your local JoinCloud app…");
-      const callbackUrl = `http://127.0.0.1:8787/auth/callback?token=${encodeURIComponent(tokenData.token)}&mode=${encodeURIComponent(isExtendTrial ? "extendTrial" : "login")}`;
-      setDeepLinkFallback(callbackUrl);
-      // Always redirect - health check can fail due to mixed content (HTTPS->HTTP) but navigation works
-      window.location.href = callbackUrl;
-    } catch (err: any) {
-      setStatus("error");
-      setMessage(err?.message ?? "Network error. Check your connection.");
-    }
-  }
+  const dashboardParams = new URLSearchParams();
+  if (accountId) dashboardParams.set("accountId", accountId);
+  if (deviceId) dashboardParams.set("deviceId", deviceId);
+  const dashboardQuery = dashboardParams.toString();
+  const dashboardHref = `/dashboard${dashboardQuery ? `?${dashboardQuery}` : ""}`;
+  const billingHref = `/billing${dashboardQuery ? `?${dashboardQuery}` : ""}`;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -88,89 +24,27 @@ function DesktopAuthForm() {
       <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
         <div className="card" style={{ maxWidth: 440, width: "100%" }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-            {mode === "extendTrial" ? "Extend trial" : "Sign in to JoinCloud"}
+            JoinCloud desktop app
           </h1>
-        <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24 }}>
-          {mode === "extendTrial"
-            ? "Sign in to extend your trial by 7 days."
-            : "Signing in will link your account to the desktop app on this device."}
-        </p>
-
-        {validDeviceId && deviceId && (
-          <div style={{ background: "var(--surface-elevated)", borderRadius: 8, padding: "8px 12px", marginBottom: 20, fontSize: 13, color: "var(--foreground-soft)" }}>
-            Device: <span style={{ fontFamily: "monospace", color: "var(--foreground)" }}>{deviceId.slice(0, 16)}…</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label className="label">Email</label>
-            <input
-              className="input"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={status === "loading" || status === "success"}
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label className="label">Password</label>
-            <input
-              className="input"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={status === "loading" || status === "success"}
-              placeholder="••••••••"
-            />
-          </div>
-
-          {message && (
-            <p style={{ fontSize: 14, color: status === "error" ? "#ef4444" : "#22c55e", margin: 0 }}>
-              {message}
-            </p>
-          )}
-
-          {status === "success" && deepLinkFallback && (
-            <p style={{ fontSize: 14, margin: 0 }}>
-              If you are not redirected,{" "}
-              <a href={deepLinkFallback} style={{ color: "var(--primary)", fontWeight: 600 }}>
-                click here
-              </a>.
-            </p>
-          )}
-          {status === "error" && (
-            <p style={{ fontSize: 13, margin: 0, color: "var(--foreground-soft)" }}>
-              Please open JoinCloud on this device, then retry.
-            </p>
-          )}
-
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={status === "loading" || status === "success" || !validDeviceId}
-          >
-            {status === "loading"
-              ? "Signing in…"
-              : mode === "extendTrial"
-                ? "Extend trial and open desktop app"
-                : "Sign in and open desktop app"}
-          </button>
-        </form>
-
-          <p style={{ marginTop: 20, fontSize: 13, color: "var(--foreground-soft)", textAlign: "center" }}>
-            Don&apos;t have an account?{" "}
-            <a href={validDeviceId && deviceId ? `/auth/signup?deviceId=${encodeURIComponent(deviceId)}` : "/auth/signup"} style={{ color: "var(--primary)", textDecoration: "none" }}>
-              Sign up
-            </a>
-            {" · "}
-            <a href="/pricing" style={{ color: "var(--primary)", textDecoration: "none" }}>View plans</a>
+          <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+            This page is used by the JoinCloud desktop app for linking your account. Sign-in via email is not required for the main flow.
           </p>
+          <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+            Open the dashboard from the app (Settings → Open Dashboard on Web) to manage your account, or use the links below.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Link href={dashboardHref} className="btn btn-primary" style={{ textAlign: "center", textDecoration: "none" }}>
+              Open Dashboard
+            </Link>
+            <Link href={billingHref} className="btn btn-secondary" style={{ textAlign: "center", textDecoration: "none" }}>
+              Billing &amp; plans
+            </Link>
+          </div>
+          {mode === "extendTrial" && (
+            <p style={{ marginTop: 20, fontSize: 13, color: "var(--foreground-soft)" }}>
+              To extend your trial, open JoinCloud on your device and use the Extend Trial link, or contact support.
+            </p>
+          )}
         </div>
       </main>
     </div>

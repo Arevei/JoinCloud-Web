@@ -40,25 +40,21 @@ const PLANS: (Plan | CustomPlan)[] = [
   },
   {
     id: "team",
-    name: "Team",
-    description: "Up to 5 users, 5 devices",
+    name: "Studio",
+    description: "For small teams and studios",
     priceMonthlyPaise: 149900,
     priceYearlyPaise: 1499900,
     deviceLimit: 5,
-    features: ["5 users, 5 devices", "Everything in Pro", "Team management", "Admin control panel"],
+    features: ["Team features", "Everything in Pro", "Team management", "Admin control panel"],
   },
   {
     id: "custom",
-    name: "Custom",
-    description: "Custom users/storage and pairing devices",
+    name: "Enterprise",
+    description: "Custom users/devices and pairing limits",
     isCustom: true,
-    features: ["Custom users/storage limit", "Custom pairing device limit", "Granted by your admin", "Email with license data on grant"],
+    features: ["Custom users limit", "Custom devices limit", "Priority onboarding", "Dedicated support"],
   },
 ];
-
-function formatINR(paise: number) {
-  return `₹${(paise / 100).toFixed(0)}`;
-}
 
 const DESKTOP_BACKEND_URL = "http://127.0.0.1:8787";
 
@@ -267,6 +263,176 @@ function AuthScreen({ onSuccess, deviceId, devModePrompt }: { onSuccess: (accoun
 }
 
 type PaymentMode = "LIVE" | "DEV";
+type SubscriptionMode = "automatic" | "manual";
+
+interface PlanRequestModalProps {
+  open: boolean;
+  onClose: () => void;
+  planId: string;
+  planName: string;
+  deviceId: string;
+  accountId: string;
+  customUsers?: number | null;
+  customDevices?: number | null;
+}
+
+function PlanRequestModal({
+  open,
+  onClose,
+  planId,
+  planName,
+  deviceId,
+  accountId,
+  customUsers,
+  customDevices,
+}: PlanRequestModalProps) {
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setEmail("");
+      setPhone("");
+      setSubmitting(false);
+      setMessage(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage(null);
+    if (!CP_URL) {
+      setMessage({ type: "error", text: "Control Plane URL not configured. Check NEXT_PUBLIC_CONTROL_PLANE_URL." });
+      return;
+    }
+    if (!email) {
+      setMessage({ type: "error", text: "Email is required." });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${CP_URL}/api/v1/subscription/requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: planId,
+          email,
+          phone: phone || undefined,
+          account_id: accountId || undefined,
+          device_id: deviceId || undefined,
+          custom_users: customUsers ?? undefined,
+          custom_devices: customDevices ?? undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage({ type: "error", text: data.message ?? "Could not send request. Please try again." });
+        setSubmitting(false);
+        return;
+      }
+      setMessage({ type: "success", text: "Request sent. We’ll email you shortly to complete payment." });
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message ?? "Network error. Please try again." });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(15,23,42,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          maxWidth: 420,
+          width: "100%",
+          padding: 24,
+          background: "var(--background)",
+        }}
+      >
+        <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Request {planName} plan</h2>
+        <p style={{ fontSize: 14, color: "var(--foreground-soft)", marginBottom: 16 }}>
+          Enter your email (required) and phone (optional). An admin will contact you to complete payment and activate your plan.
+        </p>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label className="label">Email</label>
+            <input
+              className="input"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+              placeholder="you@example.com"
+            />
+          </div>
+          <div>
+            <label className="label">Phone (optional)</label>
+            <input
+              className="input"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={submitting}
+              placeholder="+91-XXXXXXXXXX"
+            />
+          </div>
+          {(customUsers != null || customDevices != null) && (
+            <div style={{ fontSize: 13, color: "var(--foreground-soft)" }}>
+              {customUsers != null && <div>Requested users: {customUsers}</div>}
+              {customDevices != null && <div>Requested devices: {customDevices}</div>}
+            </div>
+          )}
+          {message && (
+            <p
+              style={{
+                fontSize: 13,
+                color: message.type === "error" ? "#ef4444" : "#22c55e",
+                margin: 0,
+              }}
+            >
+              {message.text}
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+            >
+              {submitting ? "Sending…" : "Send request"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function BillingContent() {
   const params = useSearchParams();
@@ -281,6 +447,11 @@ function BillingContent() {
   const [customX, setCustomX] = useState("");
   const [customY, setCustomY] = useState("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null);
+  const [subscriptionMode, setSubscriptionMode] = useState<SubscriptionMode>("automatic");
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestPlanId, setRequestPlanId] = useState<string>("pro");
+  const [requestCustomUsers, setRequestCustomUsers] = useState<number | null>(null);
+  const [requestCustomDevices, setRequestCustomDevices] = useState<number | null>(null);
 
   useEffect(() => {
     if (!accountId || !CP_URL) return;
@@ -290,8 +461,22 @@ function BillingContent() {
       .catch(() => setPaymentMode("LIVE"));
   }, [accountId]);
 
+  useEffect(() => {
+    if (!CP_URL) return;
+    fetch(`${CP_URL}/api/v1/public/billing-mode`)
+      .then((r) => r.json())
+      .then((d: { subscription_mode?: SubscriptionMode }) => {
+        if (d.subscription_mode === "manual" || d.subscription_mode === "automatic") {
+          setSubscriptionMode(d.subscription_mode);
+        } else {
+          setSubscriptionMode("automatic");
+        }
+      })
+      .catch(() => setSubscriptionMode("automatic"));
+  }, []);
+
   const hasToken = typeof window !== "undefined" ? !!localStorage.getItem(BILLING_TOKEN_KEY) : false;
-  const needsSignInForDev = paymentMode === "DEV" && accountId && !hasToken;
+  const needsSignInForDev = subscriptionMode === "automatic" && paymentMode === "DEV" && accountId && !hasToken;
 
   if (!accountId || needsSignInForDev) {
     const handleAuthSuccess = (newAccountId: string) => {
@@ -435,7 +620,7 @@ function BillingContent() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="beforeInteractive" />
       <main style={{ flex: 1, padding: "48px 24px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        {paymentMode === "DEV" && (
+        {subscriptionMode === "automatic" && paymentMode === "DEV" && (
           <div style={{ background: "#fef3c7", color: "#92400e", padding: "10px 16px", borderRadius: 8, marginBottom: 24, textAlign: "center", fontSize: 14 }}>
             DEV billing mode active - payments bypassed
           </div>
@@ -474,7 +659,7 @@ function BillingContent() {
               <h2 style={{ fontSize: 20, fontWeight: 700 }}>Free Trial</h2>
               <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>7 days, up to 5 devices</p>
             </div>
-            <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>₹0</div>
+            <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>$0</div>
             <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16 }}>
               <li>5 devices</li>
               <li>Full LAN sharing</li>
@@ -488,9 +673,15 @@ function BillingContent() {
           {/* Paid plan cards */}
           {PLANS.map((plan) => {
             const isCustom = "isCustom" in plan && plan.isCustom;
-            const price = !isCustom && "priceMonthlyPaise" in plan
-              ? (billing === "monthly" ? plan.priceMonthlyPaise : plan.priceYearlyPaise)
-              : 0;
+            const priceLabel = !isCustom
+              ? plan.id === "pro"
+                ? billing === "monthly"
+                  ? "$49"
+                  : "$500"
+                : billing === "monthly"
+                  ? "$99"
+                  : "$1000"
+              : "";
             return (
               <div key={plan.id} className="card" style={{ display: "flex", flexDirection: "column", border: isCustom ? "1px solid var(--stroke)" : "1px solid var(--primary)" }}>
                 <div style={{ marginBottom: 16 }}>
@@ -499,11 +690,16 @@ function BillingContent() {
                 </div>
                 {!isCustom ? (
                   <div style={{ marginBottom: 8 }}>
-                    <span style={{ fontSize: 36, fontWeight: 800 }}>{formatINR(price)}</span>
+                    <span style={{ fontSize: 36, fontWeight: 800 }}>{priceLabel}</span>
                     <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>/{billing === "monthly" ? "mo" : "yr"}</span>
                   </div>
                 ) : (
-                  <div style={{ marginBottom: 8, fontSize: 18, fontWeight: 600, color: "var(--foreground-soft)" }}>By request</div>
+                  <div style={{ marginBottom: 8 }}>
+                    <span style={{ fontSize: 30, fontWeight: 800 }}>
+                      {billing === "monthly" ? "$2000" : "$20000"}
+                    </span>
+                    <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>/{billing === "monthly" ? "mo" : "yr"}</span>
+                  </div>
                 )}
                 <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16 }}>
                   {plan.features.map((f) => (
@@ -514,19 +710,19 @@ function BillingContent() {
                   <div style={{ marginTop: 24 }}>
                     <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
                       <div style={{ flex: "1 1 120px" }}>
-                        <label className="label" style={{ fontSize: 12 }}>X (Rupees)</label>
+                        <label className="label" style={{ fontSize: 12 }}>Users</label>
                         <input
                           className="input"
                           type="text"
                           inputMode="numeric"
-                          placeholder="e.g. 5000"
+                          placeholder="e.g. 50"
                           value={customX}
                           onChange={(e) => setCustomX(e.target.value)}
                           style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
                         />
                       </div>
                       <div style={{ flex: "1 1 120px" }}>
-                        <label className="label" style={{ fontSize: 12 }}>Y (Devices)</label>
+                        <label className="label" style={{ fontSize: 12 }}>Devices</label>
                         <input
                           className="input"
                           type="text"
@@ -538,25 +734,62 @@ function BillingContent() {
                         />
                       </div>
                     </div>
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: "100%" }}
-                      onClick={() => handleCustomRequest()}
-                    >
-                      Get Pro - Send email request
-                    </button>
-                    <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
-                      Opens your email app with X and Y filled in. Desktop: Gmail; mobile: mailto.
-                    </p>
+                    {subscriptionMode === "manual" ? (
+                      <>
+                        <button
+                          className="btn btn-primary"
+                          style={{ width: "100%" }}
+                          onClick={() => {
+                            const users = parseInt(customX || "0", 10);
+                            const devices = parseInt(customY || "0", 10);
+                            setRequestPlanId(plan.id);
+                            setRequestCustomUsers(Number.isFinite(users) && users > 0 ? users : null);
+                            setRequestCustomDevices(Number.isFinite(devices) && devices > 0 ? devices : null);
+                            setRequestModalOpen(true);
+                          }}
+                        >
+                          Request Custom plan
+                        </button>
+                        <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
+                          Sends a request to your admin with these user and device counts. Payment will be arranged manually.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="btn btn-primary"
+                          style={{ width: "100%" }}
+                          onClick={() => handleCustomRequest()}
+                        >
+                          Get Pro - Send email request
+                        </button>
+                        <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
+                          Opens your email app with X and Y filled in. Desktop: Gmail; mobile: mailto.
+                        </p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <button
                     className="btn btn-primary"
                     style={{ marginTop: 24 }}
                     disabled={loading === plan.id}
-                    onClick={() => handleBuy(plan)}
+                    onClick={() => {
+                      if (subscriptionMode === "manual") {
+                        setRequestPlanId(plan.id);
+                        setRequestCustomUsers(null);
+                        setRequestCustomDevices(null);
+                        setRequestModalOpen(true);
+                      } else {
+                        handleBuy(plan);
+                      }
+                    }}
                   >
-                    {loading === plan.id ? "Opening checkout…" : `Get ${plan.name}`}
+                    {subscriptionMode === "manual"
+                      ? `Request ${plan.name}`
+                      : loading === plan.id
+                        ? "Opening checkout…"
+                        : `Get ${plan.name}`}
                   </button>
                 )}
               </div>
@@ -565,8 +798,21 @@ function BillingContent() {
         </div>
 
           <p style={{ color: "var(--foreground-soft)", textAlign: "center", marginTop: 40, fontSize: 13 }}>
-            Payments processed securely via Razorpay. Prices in INR. Cancel anytime from the desktop app&apos;s Billing section.
+            {subscriptionMode === "manual"
+              ? "Plan payments are handled manually after we contact you by email or phone. Prices are agreed directly with you."
+              : "Payments processed securely via Razorpay. Prices in INR. Cancel anytime from the desktop app's Billing section."}
           </p>
+
+          <PlanRequestModal
+            open={requestModalOpen}
+            onClose={() => setRequestModalOpen(false)}
+            planId={requestPlanId}
+            planName={PLANS.find((p) => p.id === requestPlanId)?.name ?? requestPlanId}
+            deviceId={deviceId}
+            accountId={accountId}
+            customUsers={requestCustomUsers}
+            customDevices={requestCustomDevices}
+          />
         </div>
       </main>
     </div>

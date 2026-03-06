@@ -11,13 +11,10 @@ export default function Home() {
           <img src="/joincloud-logo.png" alt="JoinCloud" style={{ height: 56, width: "auto", marginBottom: 16, marginLeft: "auto", marginRight: "auto", display: "block" }} />
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8, color: "var(--foreground)" }}>JoinCloud</h1>
           <p style={{ color: "var(--foreground-soft)", marginBottom: 24, fontSize: 14 }}>
-            A Personal Cloud Network, Secure High-Speed LAN file sharing and Collaboration
+            A Personal Cloud Network for secure high-speed LAN file sharing and collaboration.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="/auth/desktop" className="btn btn-primary" style={{ textDecoration: "none", padding: "10px 20px", color: "var(--bg)" }}>
-              Sign In
-            </a>
-            <a href="/billing" className="btn btn-secondary" style={{ textDecoration: "none", padding: "10px 20px", color: "var(--foreground-soft)" }}>
+            <a href="/billing" className="btn btn-primary" style={{ textDecoration: "none", padding: "10px 20px", color: "var(--bg)" }}>
               View Plans
             </a>
           </div>

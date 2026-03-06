@@ -13,8 +13,8 @@ export default function ResetPasswordPage() {
           <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: 24 }}>
             Open your Account Dashboard from the JoinCloud desktop app and click &quot;Change Password&quot; in the Account section.
           </p>
-          <Link href="/auth/desktop" className="btn btn-secondary" style={{ textDecoration: "none", display: "inline-block", padding: "10px 20px" }}>
-            Back to Sign In
+          <Link href="/" className="btn btn-secondary" style={{ textDecoration: "none", display: "inline-block", padding: "10px 20px" }}>
+            Back to Home
           </Link>
         </div>
       </main>
