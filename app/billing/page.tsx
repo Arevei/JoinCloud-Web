@@ -40,7 +40,7 @@ const PLANS: (Plan | CustomPlan)[] = [
   },
   {
     id: "team",
-    name: "Studio",
+    name: "Teams",
     description: "For small teams and studios",
     priceMonthlyPaise: 149900,
     priceYearlyPaise: 1499900,
@@ -49,7 +49,7 @@ const PLANS: (Plan | CustomPlan)[] = [
   },
   {
     id: "custom",
-    name: "Enterprise",
+    name: "Custom",
     description: "Custom users/devices and pairing limits",
     isCustom: true,
     features: ["Custom users limit", "Custom devices limit", "Priority onboarding", "Dedicated support"],
@@ -350,7 +350,7 @@ function PlanRequestModal({
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(15,23,42,0.6)",
+        backgroundColor: "rgba(0,0,0,0.85)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -363,7 +363,7 @@ function PlanRequestModal({
           maxWidth: 420,
           width: "100%",
           padding: 24,
-          background: "var(--background)",
+          background: "black",
         }}
       >
         <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Request {planName} plan</h2>
@@ -695,10 +695,7 @@ function BillingContent() {
                   </div>
                 ) : (
                   <div style={{ marginBottom: 8 }}>
-                    <span style={{ fontSize: 30, fontWeight: 800 }}>
-                      {billing === "monthly" ? "$2000" : "$20000"}
-                    </span>
-                    <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>/{billing === "monthly" ? "mo" : "yr"}</span>
+                    <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>Pricing and activation by admin</span>
                   </div>
                 )}
                 <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16 }}>
