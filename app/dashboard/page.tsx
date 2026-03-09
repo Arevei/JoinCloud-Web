@@ -479,7 +479,7 @@ function DashboardContent() {
         </p>
 
         {/* SECTION 1 - Account (only for real accounts) */}
-        {!isDeviceOnly ? (
+        {/* {!isDeviceOnly ? (
           <div className="card" style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16, color: "var(--foreground)" }}>Account</h2>
             <Row label="Email" value={account?.email ?? "-"} />
@@ -505,7 +505,7 @@ function DashboardContent() {
               Sign in to link account
             </a>
           </div>
-        )}
+        )} */}
 
         {/* SECTION 2 - Subscription */}
         <div className="card" style={{ marginBottom: 20 }}>
