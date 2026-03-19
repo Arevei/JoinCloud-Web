@@ -39,15 +39,6 @@ const PLANS: (Plan | CustomPlan)[] = [
     features: ["Up to 5 devices", "Full LAN sharing", "Priority support", "Past payments history"],
   },
   {
-    id: "team",
-    name: "Teams",
-    description: "For small teams and studios",
-    priceMonthlyPaise: 149900,
-    priceYearlyPaise: 1499900,
-    deviceLimit: 5,
-    features: ["Team features", "Everything in Pro", "Team management", "Admin control panel"],
-  },
-  {
     id: "custom",
     name: "Custom",
     description: "Custom users/devices and pairing limits",
@@ -274,6 +265,9 @@ interface PlanRequestModalProps {
   accountId: string;
   customUsers?: number | null;
   customDevices?: number | null;
+  requestedDays?: number | null;
+  requestedShareLimit?: number | null;
+  requestedDeviceLimit?: number | null;
 }
 
 function PlanRequestModal({
@@ -285,6 +279,9 @@ function PlanRequestModal({
   accountId,
   customUsers,
   customDevices,
+  requestedDays,
+  requestedShareLimit,
+  requestedDeviceLimit,
 }: PlanRequestModalProps) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -326,6 +323,9 @@ function PlanRequestModal({
           device_id: deviceId || undefined,
           custom_users: customUsers ?? undefined,
           custom_devices: customDevices ?? undefined,
+          requested_days: requestedDays ?? undefined,
+          requested_share_limit: requestedShareLimit ?? undefined,
+          requested_device_limit: requestedDeviceLimit ?? undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -452,6 +452,10 @@ function BillingContent() {
   const [requestPlanId, setRequestPlanId] = useState<string>("pro");
   const [requestCustomUsers, setRequestCustomUsers] = useState<number | null>(null);
   const [requestCustomDevices, setRequestCustomDevices] = useState<number | null>(null);
+  const [requestRequestedDays, setRequestRequestedDays] = useState<number | null>(null);
+  const [requestRequestedShareLimit, setRequestRequestedShareLimit] = useState<number | null>(null);
+  const [requestRequestedDeviceLimit, setRequestRequestedDeviceLimit] = useState<number | null>(null);
+  const [requestCustomDays, setRequestCustomDays] = useState<number>(365);
 
   useEffect(() => {
     if (!accountId || !CP_URL) return;
@@ -527,7 +531,7 @@ function BillingContent() {
           setLoading(null);
           return;
         }
-        const planUpper = plan.id === "team" ? "TEAMS" : "PRO";
+        const planUpper = "PRO";
         const activateRes = await fetch(`${CP_URL}/api/v1/dev/activate-plan`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -705,54 +709,70 @@ function BillingContent() {
                 </ul>
                 {isCustom ? (
                   <div style={{ marginTop: 24 }}>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                      <div style={{ flex: "1 1 120px" }}>
-                        <label className="label" style={{ fontSize: 12 }}>Users</label>
-                        <input
-                          className="input"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="e.g. 50"
-                          value={customX}
-                          onChange={(e) => setCustomX(e.target.value)}
-                          style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
-                        />
-                      </div>
-                      <div style={{ flex: "1 1 120px" }}>
-                        <label className="label" style={{ fontSize: 12 }}>Devices</label>
-                        <input
-                          className="input"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="e.g. 10"
-                          value={customY}
-                          onChange={(e) => setCustomY(e.target.value)}
-                          style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
-                        />
-                      </div>
-                    </div>
                     {subscriptionMode === "manual" ? (
                       <>
+                        <div style={{ marginBottom: 12 }}>
+                          <label className="label" style={{ fontSize: 12 }}>Requested duration (days)</label>
+                          <input
+                            className="input"
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={requestCustomDays}
+                            onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            setRequestCustomDays(Number.isFinite(v) ? Math.min(365, Math.max(1, v)) : 365);
+                          }}
+                            style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
+                          />
+                        </div>
                         <button
                           className="btn btn-primary"
                           style={{ width: "100%" }}
                           onClick={() => {
-                            const users = parseInt(customX || "0", 10);
-                            const devices = parseInt(customY || "0", 10);
                             setRequestPlanId(plan.id);
-                            setRequestCustomUsers(Number.isFinite(users) && users > 0 ? users : null);
-                            setRequestCustomDevices(Number.isFinite(devices) && devices > 0 ? devices : null);
+                            setRequestCustomUsers(null);
+                            setRequestCustomDevices(null);
+                            setRequestRequestedDays(requestCustomDays);
+                            setRequestRequestedShareLimit(null);
+                            setRequestRequestedDeviceLimit(null);
                             setRequestModalOpen(true);
                           }}
                         >
                           Request Custom plan
                         </button>
                         <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
-                          Sends a request to your admin with these user and device counts. Payment will be arranged manually.
+                          Sends a request to your admin with the requested duration. Payment will be arranged manually.
                         </p>
                       </>
                     ) : (
                       <>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                          <div style={{ flex: "1 1 120px" }}>
+                            <label className="label" style={{ fontSize: 12 }}>Users</label>
+                            <input
+                              className="input"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="e.g. 50"
+                              value={customX}
+                              onChange={(e) => setCustomX(e.target.value)}
+                              style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
+                            />
+                          </div>
+                          <div style={{ flex: "1 1 120px" }}>
+                            <label className="label" style={{ fontSize: 12 }}>Devices</label>
+                            <input
+                              className="input"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="e.g. 10"
+                              value={customY}
+                              onChange={(e) => setCustomY(e.target.value)}
+                              style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
+                            />
+                          </div>
+                        </div>
                         <button
                           className="btn btn-primary"
                           style={{ width: "100%" }}
@@ -776,6 +796,9 @@ function BillingContent() {
                         setRequestPlanId(plan.id);
                         setRequestCustomUsers(null);
                         setRequestCustomDevices(null);
+                        setRequestRequestedDays(billing === "monthly" ? 30 : 365);
+                        setRequestRequestedShareLimit(plan.id === "pro" ? 50 : null);
+                        setRequestRequestedDeviceLimit(plan.id === "pro" ? 5 : null);
                         setRequestModalOpen(true);
                       } else {
                         handleBuy(plan);
@@ -809,6 +832,9 @@ function BillingContent() {
             accountId={accountId}
             customUsers={requestCustomUsers}
             customDevices={requestCustomDevices}
+            requestedDays={requestRequestedDays}
+            requestedShareLimit={requestRequestedShareLimit}
+            requestedDeviceLimit={requestRequestedDeviceLimit}
           />
         </div>
       </main>
