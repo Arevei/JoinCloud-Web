@@ -43,7 +43,7 @@ const PLANS: (Plan | CustomPlan)[] = [
     name: "Custom",
     description: "Custom users/devices and pairing limits",
     isCustom: true,
-    features: ["Custom users limit", "Custom devices limit", "Priority onboarding", "Dedicated support"],
+    features: ["Custom Share limit", "Custom devices limit", "Priority onboarding", "Dedicated support"],
   },
 ];
 

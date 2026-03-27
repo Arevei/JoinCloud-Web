@@ -19,7 +19,7 @@ export default function Header() {
         }}
       >
         <img src="/joincloud-logo.png" alt="JoinCloud" style={{ height: 28, width: "auto" }} />
-        <span style={{ fontWeight: 700, fontSize: 18 }}>JoinCloud</span>
+        
       </a>
     </header>
   );
