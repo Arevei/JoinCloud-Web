@@ -12,9 +12,10 @@ const BILLING_TOKEN_KEY = "joincloud_billing_token";
 interface Plan {
   id: string;
   name: string;
+  badge: string | null;
   description: string;
-  priceMonthlyPaise: number;
-  priceYearlyPaise: number;
+  priceMonthly: number;   // paise
+  priceYearly: number;    // paise
   deviceLimit: number;
   features: string[];
   isCustom?: false;
@@ -23,6 +24,7 @@ interface Plan {
 interface CustomPlan {
   id: string;
   name: string;
+  badge: string | null;
   description: string;
   isCustom: true;
   features: string[];
@@ -32,18 +34,52 @@ const PLANS: (Plan | CustomPlan)[] = [
   {
     id: "pro",
     name: "Pro",
-    description: "Single user, up to 5 devices",
-    priceMonthlyPaise: 49900,
-    priceYearlyPaise: 499900,
-    deviceLimit: 5,
-    features: ["Up to 5 devices", "Full LAN sharing", "Priority support", "Past payments history"],
+    badge: "Most popular",
+    description: "Single user, up to 3 devices",
+    priceMonthly: 39900,    // ₹399/mo
+    priceYearly: 399900,    // ₹3999/yr (~1 month free)
+    deviceLimit: 3,
+    features: [
+      "3 devices",
+      "50 shares/month",
+      // "Up to 20 GB per file",
+      // "Links up to 30 days",
+      "Resumable downloads",
+      "CDN cache (fast downloads)",
+      // "Peer chat",
+    ],
   },
+  // {
+  //   id: "pro_plus",
+  //   name: "Pro+",
+  //   badge: "Teams",
+  //   description: "Up to 5 users, 5 devices each",
+  //   priceMonthly: 99900,    // ₹999/mo
+  //   priceYearly: 999900,    // ₹9999/yr
+  //   deviceLimit: 25,
+  //   features: [
+  //     "5 users × 5 devices",
+  //     "Unlimited shares",
+  //     "Unlimited file size",
+  //     "Links up to 90 days",
+  //     "Resumable downloads",
+  //     "CDN cache (fast downloads)",
+  //     "Team spaces",
+  //     "Peer chat",
+  //   ],
+  // },
   {
     id: "custom",
     name: "Custom",
-    description: "Custom users/devices and pairing limits",
+    badge: null,
+    description: "Enterprise — custom users/devices",
     isCustom: true,
-    features: ["Custom Share limit", "Custom devices limit", "Priority onboarding", "Dedicated support"],
+    features: [
+      // "Custom device & user limits",
+      "Custom share limit",
+      "Priority onboarding",
+      "Dedicated support",
+    ],
   },
 ];
 
@@ -57,7 +93,6 @@ function SuccessScreen({ successPlan, accountId, deviceId }: { successPlan: stri
     if (!deviceId || !CP_URL) return;
     const token = typeof window !== "undefined" ? localStorage.getItem(BILLING_TOKEN_KEY) : null;
     if (!token) return;
-    // Use local HTTP callback (same as auth/desktop) - avoids joincloud:// protocol which can open wrong Electron app
     const checkAndFetch = async () => {
       try {
         await fetch(`${DESKTOP_BACKEND_URL}/api/v1/health`, { method: "GET", mode: "no-cors" });
@@ -334,10 +369,8 @@ function PlanRequestModal({
         setSubmitting(false);
         return;
       }
-      setMessage({ type: "success", text: "Request sent. We’ll email you shortly to complete payment." });
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+      setMessage({ type: "success", text: "Request sent. We'll email you shortly to complete payment." });
+      setTimeout(() => { onClose(); }, 1500);
     } catch (err: any) {
       setMessage({ type: "error", text: err?.message ?? "Network error. Please try again." });
     } finally {
@@ -346,26 +379,8 @@ function PlanRequestModal({
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.85)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
-    >
-      <div
-        className="card"
-        style={{
-          maxWidth: 420,
-          width: "100%",
-          padding: 24,
-          background: "black",
-        }}
-      >
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+      <div className="card" style={{ maxWidth: 420, width: "100%", padding: 24, background: "black" }}>
         <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Request {planName} plan</h2>
         <p style={{ fontSize: 14, color: "var(--foreground-soft)", marginBottom: 16 }}>
           Enter your email (required) and phone (optional). An admin will contact you to complete payment and activate your plan.
@@ -373,26 +388,11 @@ function PlanRequestModal({
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
             <label className="label">Email</label>
-            <input
-              className="input"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={submitting}
-              placeholder="you@example.com"
-            />
+            <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={submitting} placeholder="you@example.com" />
           </div>
           <div>
             <label className="label">Phone (optional)</label>
-            <input
-              className="input"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={submitting}
-              placeholder="+91-XXXXXXXXXX"
-            />
+            <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={submitting} placeholder="+91-XXXXXXXXXX" />
           </div>
           {(customUsers != null || customDevices != null) && (
             <div style={{ fontSize: 13, color: "var(--foreground-soft)" }}>
@@ -401,32 +401,11 @@ function PlanRequestModal({
             </div>
           )}
           {message && (
-            <p
-              style={{
-                fontSize: 13,
-                color: message.type === "error" ? "#ef4444" : "#22c55e",
-                margin: 0,
-              }}
-            >
-              {message.text}
-            </p>
+            <p style={{ fontSize: 13, color: message.type === "error" ? "#ef4444" : "#22c55e", margin: 0 }}>{message.text}</p>
           )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting}
-            >
-              {submitting ? "Sending…" : "Send request"}
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? "Sending…" : "Send request"}</button>
           </div>
         </form>
       </div>
@@ -444,8 +423,6 @@ function BillingContent() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [successPlan, setSuccessPlan] = useState("");
-  const [customX, setCustomX] = useState("");
-  const [customY, setCustomY] = useState("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null);
   const [subscriptionMode, setSubscriptionMode] = useState<SubscriptionMode>("automatic");
   const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -458,25 +435,16 @@ function BillingContent() {
   const [requestCustomDays, setRequestCustomDays] = useState<number>(365);
 
   useEffect(() => {
-    if (!accountId || !CP_URL) return;
-    fetch(`${CP_URL}/api/v1/public/billing-mode`)
-      .then((r) => r.json())
-      .then((d: { payment_mode: PaymentMode }) => setPaymentMode(d.payment_mode ?? "LIVE"))
-      .catch(() => setPaymentMode("LIVE"));
-  }, [accountId]);
-
-  useEffect(() => {
     if (!CP_URL) return;
     fetch(`${CP_URL}/api/v1/public/billing-mode`)
       .then((r) => r.json())
-      .then((d: { subscription_mode?: SubscriptionMode }) => {
+      .then((d: { payment_mode?: PaymentMode; subscription_mode?: SubscriptionMode }) => {
+        setPaymentMode(d.payment_mode ?? "LIVE");
         if (d.subscription_mode === "manual" || d.subscription_mode === "automatic") {
           setSubscriptionMode(d.subscription_mode);
-        } else {
-          setSubscriptionMode("automatic");
         }
       })
-      .catch(() => setSubscriptionMode("automatic"));
+      .catch(() => { setPaymentMode("LIVE"); setSubscriptionMode("automatic"); });
   }, []);
 
   const hasToken = typeof window !== "undefined" ? !!localStorage.getItem(BILLING_TOKEN_KEY) : false;
@@ -499,12 +467,8 @@ function BillingContent() {
   }
 
   function handleCustomRequest() {
-    const x = customX.trim() || "X";
-    const y = customY.trim() || "Y";
-    const subject = encodeURIComponent(`Subscription Inquiry: ${x} Rupees for ${y} Devices`);
-    const body = encodeURIComponent(
-      "Hello Team,\n\nI would like to purchase the JoinCloud plan for Rs. " + x + " covering " + y + " devices. Please let me know how to proceed with the payment.\n\nThank you!"
-    );
+    const subject = encodeURIComponent("JoinCloud Custom Plan Inquiry");
+    const body = encodeURIComponent("Hello Team,\n\nI'm interested in the JoinCloud Custom plan. Please let me know how to proceed.\n\nThank you!");
     const to = "vinay@arevei.com";
     const cc = "rishabh@arevei.com";
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -523,7 +487,6 @@ function BillingContent() {
     setError("");
     setLoading(plan.id);
     try {
-      // DEV mode: instant license grant (no Razorpay)
       if (paymentMode === "DEV") {
         const token = typeof window !== "undefined" ? localStorage.getItem(BILLING_TOKEN_KEY) : null;
         if (!token) {
@@ -531,7 +494,7 @@ function BillingContent() {
           setLoading(null);
           return;
         }
-        const planUpper = "PRO";
+        const planUpper = plan.id === "pro_plus" ? "PRO_PLUS" : plan.id.toUpperCase();
         const activateRes = await fetch(`${CP_URL}/api/v1/dev/activate-plan`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -549,7 +512,7 @@ function BillingContent() {
       }
 
       // LIVE mode: Razorpay checkout
-      const amount = billing === "monthly" ? plan.priceMonthlyPaise : plan.priceYearlyPaise;
+      const amount = billing === "monthly" ? plan.priceMonthly : plan.priceYearly;
       const orderRes = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -582,7 +545,7 @@ function BillingContent() {
               account_id: accountId,
               device_id: deviceId,
               plan: plan.id,
-              device_limit: String(plan.deviceLimit),
+              device_limit: String((plan as Plan).deviceLimit),
             }),
           });
           const verifyData = await verifyRes.json();
@@ -593,9 +556,7 @@ function BillingContent() {
           }
           setLoading(null);
         },
-        modal: {
-          ondismiss: () => setLoading(null),
-        },
+        modal: { ondismiss: () => setLoading(null) },
       });
       rzp.on("payment.failed", (resp: any) => {
         setError(resp?.error?.description ?? "Payment failed.");
@@ -609,13 +570,7 @@ function BillingContent() {
   }
 
   if (successPlan) {
-    return (
-      <SuccessScreen
-        successPlan={successPlan}
-        accountId={accountId}
-        deviceId={deviceId}
-      />
-    );
+    return <SuccessScreen successPlan={successPlan} accountId={accountId} deviceId={deviceId} />;
   }
 
   return (
@@ -623,203 +578,213 @@ function BillingContent() {
       <Header />
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="beforeInteractive" />
       <main style={{ flex: 1, padding: "48px 24px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        {subscriptionMode === "automatic" && paymentMode === "DEV" && (
-          <div style={{ background: "#fef3c7", color: "#92400e", padding: "10px 16px", borderRadius: 8, marginBottom: 24, textAlign: "center", fontSize: 14 }}>
-            DEV billing mode active - payments bypassed
-          </div>
-        )}
-        <h1 style={{ fontSize: 32, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>Choose a plan</h1>
-        <p style={{ color: "var(--foreground-soft)", textAlign: "center", marginBottom: 32, fontSize: 14 }}>
-          Start with a free 7-day trial - no email needed. Upgrade any time.
-        </p>
-
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 40 }}>
-          {(["monthly", "yearly"] as const).map((b) => (
-            <button
-              key={b}
-              className={`btn ${billing === b ? "btn-primary" : "btn-secondary"}`}
-              style={{ padding: "8px 20px", fontSize: 14 }}
-              onClick={() => setBilling(b)}
-            >
-              {b.charAt(0).toUpperCase() + b.slice(1)}
-              {b === "yearly" && (
-                <span style={{ marginLeft: 6, background: "#16a34a22", color: "#22c55e", borderRadius: 4, padding: "1px 6px", fontSize: 11 }}>
-                  ~2 months free
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <p style={{ color: "#ef4444", textAlign: "center", marginBottom: 24, fontSize: 14 }}>{error}</p>
-        )}
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-          {/* Free trial card */}
-          <div className="card" style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ marginBottom: 16 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700 }}>Free Trial</h2>
-              <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>7 days, up to 5 devices</p>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          {subscriptionMode === "automatic" && paymentMode === "DEV" && (
+            <div style={{ background: "#fef3c7", color: "#92400e", padding: "10px 16px", borderRadius: 8, marginBottom: 24, textAlign: "center", fontSize: 14 }}>
+              DEV billing mode active — payments bypassed
             </div>
-            <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>$0</div>
-            <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16 }}>
-              <li>5 devices</li>
-              <li>Full LAN sharing</li>
-              <li>No credit card required</li>
-            </ul>
-            <p style={{ color: "var(--foreground-soft)", fontSize: 12, marginTop: 20 }}>
-              Sign in from the desktop app to start your free trial.
-            </p>
+          )}
+
+          <h1 style={{ fontSize: 32, fontWeight: 700, textAlign: "center", marginBottom: 8 }}>Choose a plan</h1>
+          <p style={{ color: "var(--foreground-soft)", textAlign: "center", marginBottom: 32, fontSize: 14 }}>
+            Start with a free 14-day trial — no credit card needed.
+          </p>
+
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 40 }}>
+            {(["monthly", "yearly"] as const).map((b) => (
+              <button
+                key={b}
+                className={`btn ${billing === b ? "btn-primary" : "btn-secondary"}`}
+                style={{ padding: "8px 20px", fontSize: 14 }}
+                onClick={() => setBilling(b)}
+              >
+                {b.charAt(0).toUpperCase() + b.slice(1)}
+                {b === "yearly" && (
+                  <span style={{ marginLeft: 6, background: "#16a34a22", color: "#22c55e", borderRadius: 4, padding: "1px 6px", fontSize: 11 }}>
+                    ~1 month free
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* Paid plan cards */}
-          {PLANS.map((plan) => {
-            const isCustom = "isCustom" in plan && plan.isCustom;
-            const priceLabel = !isCustom
-              ? plan.id === "pro"
-                ? billing === "monthly"
-                  ? "$49"
-                  : "$500"
-                : billing === "monthly"
-                  ? "$99"
-                  : "$1000"
-              : "";
-            return (
-              <div key={plan.id} className="card" style={{ display: "flex", flexDirection: "column", border: isCustom ? "1px solid var(--stroke)" : "1px solid var(--primary)" }}>
-                <div style={{ marginBottom: 16 }}>
-                  <h2 style={{ fontSize: 20, fontWeight: 700 }}>{plan.name}</h2>
-                  <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>{plan.description}</p>
-                </div>
-                {!isCustom ? (
-                  <div style={{ marginBottom: 8 }}>
-                    <span style={{ fontSize: 36, fontWeight: 800 }}>{priceLabel}</span>
-                    <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>/{billing === "monthly" ? "mo" : "yr"}</span>
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 8 }}>
-                    <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>Pricing and activation by admin</span>
-                  </div>
-                )}
-                <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16 }}>
-                  {plan.features.map((f) => (
-                    <li key={f} style={{ marginBottom: 4 }}>✓ {f}</li>
-                  ))}
-                </ul>
-                {isCustom ? (
-                  <div style={{ marginTop: 24 }}>
-                    {subscriptionMode === "manual" ? (
-                      <>
-                        <div style={{ marginBottom: 12 }}>
-                          <label className="label" style={{ fontSize: 12 }}>Requested duration (days)</label>
-                          <input
-                            className="input"
-                            type="number"
-                            min={1}
-                            max={365}
-                            value={requestCustomDays}
-                            onChange={(e) => {
-                            const v = parseInt(e.target.value, 10);
-                            setRequestCustomDays(Number.isFinite(v) ? Math.min(365, Math.max(1, v)) : 365);
-                          }}
-                            style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
-                          />
-                        </div>
-                        <button
-                          className="btn btn-primary"
-                          style={{ width: "100%" }}
-                          onClick={() => {
-                            setRequestPlanId(plan.id);
-                            setRequestCustomUsers(null);
-                            setRequestCustomDevices(null);
-                            setRequestRequestedDays(requestCustomDays);
-                            setRequestRequestedShareLimit(null);
-                            setRequestRequestedDeviceLimit(null);
-                            setRequestModalOpen(true);
-                          }}
-                        >
-                          Request Custom plan
-                        </button>
-                        <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
-                          Sends a request to your admin with the requested duration. Payment will be arranged manually.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                          <div style={{ flex: "1 1 120px" }}>
-                            <label className="label" style={{ fontSize: 12 }}>Users</label>
-                            <input
-                              className="input"
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="e.g. 50"
-                              value={customX}
-                              onChange={(e) => setCustomX(e.target.value)}
-                              style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
-                            />
-                          </div>
-                          <div style={{ flex: "1 1 120px" }}>
-                            <label className="label" style={{ fontSize: 12 }}>Devices</label>
-                            <input
-                              className="input"
-                              type="text"
-                              inputMode="numeric"
-                              placeholder="e.g. 10"
-                              value={customY}
-                              onChange={(e) => setCustomY(e.target.value)}
-                              style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
-                            />
-                          </div>
-                        </div>
-                        <button
-                          className="btn btn-primary"
-                          style={{ width: "100%" }}
-                          onClick={() => handleCustomRequest()}
-                        >
-                          Get Pro - Send email request
-                        </button>
-                        <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
-                          Opens your email app with X and Y filled in. Desktop: Gmail; mobile: mailto.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    className="btn btn-primary"
-                    style={{ marginTop: 24 }}
-                    disabled={loading === plan.id}
-                    onClick={() => {
-                      if (subscriptionMode === "manual") {
-                        setRequestPlanId(plan.id);
-                        setRequestCustomUsers(null);
-                        setRequestCustomDevices(null);
-                        setRequestRequestedDays(billing === "monthly" ? 30 : 365);
-                        setRequestRequestedShareLimit(plan.id === "pro" ? 50 : null);
-                        setRequestRequestedDeviceLimit(plan.id === "pro" ? 5 : null);
-                        setRequestModalOpen(true);
-                      } else {
-                        handleBuy(plan);
-                      }
-                    }}
-                  >
-                    {subscriptionMode === "manual"
-                      ? `Request ${plan.name}`
-                      : loading === plan.id
-                        ? "Opening checkout…"
-                        : `Get ${plan.name}`}
-                  </button>
-                )}
+          {error && (
+            <p style={{ color: "#ef4444", textAlign: "center", marginBottom: 24, fontSize: 14 }}>{error}</p>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+            {/* Free tier card */}
+            <div className="card" style={{ display: "flex", flexDirection: "column", border: "1px solid var(--stroke)" }}>
+              <div style={{ marginBottom: 16 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 700 }}>Free Plan</h2>
+                <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>Personal use, 1 device</p>
               </div>
-            );
-          })}
-        </div>
+              <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>₹0</div>
+              <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16, lineHeight: 1.8 }}>
+                <li>1 device</li>
+                <li>5 shares/month</li>
+                <li>No Expiry</li>
+                {/* <li>Up to 2 GB per file</li>
+                <li>Links expire after 24hr</li>
+                <li>Peer chat</li> */}
+              </ul>
+              {/* <p style={{ color: "var(--foreground-soft)", fontSize: 12, marginTop: 20 }}>
+                Default after your trial ends. No action needed.
+              </p> */}
+            </div>
+
+            {/* Free trial card */}
+            <div className="card" style={{ display: "flex", flexDirection: "column", border: "1px solid rgba(47,183,255,0.3)" }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700 }}>Free Trial</h2>
+                  <span style={{ background: "#2FB7FF22", color: "#2FB7FF", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>7 days</span>
+                </div>
+                <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>Pro-like limits, no card needed</p>
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 8 }}>₹0</div>
+              <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16, lineHeight: 1.8 }}>
+                <li>3 devices</li>
+                <li>50 shares/month</li>
+                <li>Active on Installation</li>
+                <li>Pro-like limits</li>
+                {/* <li>Up to 20 GB per file</li>
+                <li>Links up to 7 days</li>
+                <li>Peer chat</li> */}
+              </ul>
+              {/* <p style={{ color: "var(--foreground-soft)", fontSize: 12, marginTop: 20 }}>
+                Sign in from the desktop app to start your trial.
+              </p> */}
+            </div>
+
+            {/* Paid plan cards */}
+            {PLANS.map((plan) => {
+              const isCustom = "isCustom" in plan && plan.isCustom;
+              const priceLabel = !isCustom
+                ? `₹${(billing === "monthly" ? plan.priceMonthly : plan.priceYearly) / 100}`
+                : "";
+              const priceSuffix = !isCustom
+                ? billing === "monthly" ? "/mo" : "/yr"
+                : "";
+
+              return (
+                <div
+                  key={plan.id}
+                  className="card"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    border: isCustom ? "1px solid var(--stroke)" : plan.id === "pro" ? "1px solid var(--primary)" : "1px solid rgba(168,85,247,0.5)",
+                    position: "relative",
+                  }}
+                >
+                  {plan.badge && (
+                    <div style={{
+                      position: "absolute", top: -1, right: 16,
+                      background: plan.id === "pro" ? "var(--primary)" : "#a855f7",
+                      color: "white", borderRadius: "0 0 6px 6px",
+                      padding: "2px 10px", fontSize: 11, fontWeight: 600,
+                    }}>
+                      {plan.badge}
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 16, paddingTop: plan.badge ? 8 : 0 }}>
+                    <h2 style={{ fontSize: 20, fontWeight: 700 }}>{plan.name}</h2>
+                    <p style={{ color: "var(--foreground-soft)", fontSize: 14, marginTop: 4 }}>{plan.description}</p>
+                  </div>
+                  {!isCustom ? (
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ fontSize: 36, fontWeight: 800 }}>{priceLabel}</span>
+                      <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>{priceSuffix}</span>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: 8 }}>
+                      <span style={{ color: "var(--foreground-soft)", fontSize: 14 }}>Pricing agreed directly with you</span>
+                    </div>
+                  )}
+                  <ul style={{ color: "var(--foreground-soft)", fontSize: 14, marginBottom: "auto", paddingLeft: 16, lineHeight: 1.8 }}>
+                    {plan.features.map((f) => (
+                      <li key={f}>✓ {f}</li>
+                    ))}
+                  </ul>
+                  {isCustom ? (
+                    <div style={{ marginTop: 24 }}>
+                      {subscriptionMode === "manual" ? (
+                        <>
+                          <div style={{ marginBottom: 12 }}>
+                            <label className="label" style={{ fontSize: 12 }}>Requested duration (days)</label>
+                            <input
+                              className="input"
+                              type="number"
+                              min={1}
+                              max={365}
+                              value={requestCustomDays}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value, 10);
+                                setRequestCustomDays(Number.isFinite(v) ? Math.min(365, Math.max(1, v)) : 365);
+                              }}
+                              style={{ width: "100%", padding: "8px 12px", fontSize: 14 }}
+                            />
+                          </div>
+                          <button
+                            className="btn btn-primary"
+                            style={{ width: "100%" }}
+                            onClick={() => {
+                              setRequestPlanId(plan.id);
+                              setRequestCustomUsers(null);
+                              setRequestCustomDevices(null);
+                              setRequestRequestedDays(requestCustomDays);
+                              setRequestRequestedShareLimit(null);
+                              setRequestRequestedDeviceLimit(null);
+                              setRequestModalOpen(true);
+                            }}
+                          >
+                            Request Custom plan
+                          </button>
+                          <p style={{ marginTop: 8, fontSize: 12, color: "var(--foreground-soft)" }}>
+                            Sends a request to your admin. Payment arranged manually.
+                          </p>
+                        </>
+                      ) : (
+                        <button className="btn btn-primary" style={{ width: "100%" }} onClick={() => handleCustomRequest()}>
+                          Contact us
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      style={{ marginTop: 24, background: plan.id === "pro_plus" ? "#a855f7" : undefined, borderColor: plan.id === "pro_plus" ? "#a855f7" : undefined }}
+                      disabled={loading === plan.id}
+                      onClick={() => {
+                        if (subscriptionMode === "manual") {
+                          setRequestPlanId(plan.id);
+                          setRequestCustomUsers(null);
+                          setRequestCustomDevices(null);
+                          setRequestRequestedDays(billing === "monthly" ? 30 : 365);
+                          setRequestRequestedShareLimit(plan.id === "pro" ? 50 : null);
+                          setRequestRequestedDeviceLimit((plan as Plan).deviceLimit);
+                          setRequestModalOpen(true);
+                        } else {
+                          handleBuy(plan);
+                        }
+                      }}
+                    >
+                      {subscriptionMode === "manual"
+                        ? `Request ${plan.name}`
+                        : loading === plan.id
+                          ? "Opening checkout…"
+                          : `Get ${plan.name}`}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           <p style={{ color: "var(--foreground-soft)", textAlign: "center", marginTop: 40, fontSize: 13 }}>
             {subscriptionMode === "manual"
-              ? "Plan payments are handled manually after we contact you by email or phone. Prices are agreed directly with you."
+              ? "Plan payments are handled manually after we contact you by email or phone."
               : "Payments processed securely via Razorpay. Prices in INR. Cancel anytime from the desktop app's Billing section."}
           </p>
 
