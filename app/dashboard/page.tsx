@@ -459,9 +459,9 @@ function DashboardContent() {
   const primaryEmail = (license?.members?.primary?.email ?? account?.email) ?? "";
 
   const plan = (license?.tier ?? "trial").replace(/^./, (c: string) => c.toUpperCase());
-  const status = subscription?.status ?? license?.state ?? "none";
   const paidTiers = ["pro", "teams", "custom"];
   const isPaidTier = license?.tier && paidTiers.includes(license.tier.toLowerCase());
+  const status = isPaidTier ? (subscription?.status ?? license?.state ?? "none") : (license?.state ?? subscription?.status ?? "none");
   const hasActivePaidPlan = isPaidTier || status === "active" || status === "trialing";
   const planButtonText = hasActivePaidPlan ? "Change Plan" : "Upgrade Plan";
   const billingUrl = `/billing?accountId=${encodeURIComponent(accountId || account?.id || "")}${deviceId ? `&deviceId=${encodeURIComponent(deviceId)}` : ""}`;
